@@ -1,0 +1,17 @@
+{
+    "name": "Zentser ESP SDK",
+    "keywords": "mqtt, iot, zentser",
+    "description": "A library for connecting to AWS.",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Zentser/esp-zentser-sdk"
+    },
+    "version": "0.0.1",
+    "dependencies": {
+        "bblanchon/ArduinoJson": "^6.18.1",
+        "PubSubClient": "^2.8"
+    },
+    "examples": "examples/*/*.ino",
+    "license": "MIT",
+    "frameworks": "arduino"
+}
