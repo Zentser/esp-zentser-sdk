@@ -31,8 +31,8 @@ AWSConfig aws = AWSConfig(deviceId, sensorId); // init AWS function
 uint8_t DHTPIN = 14; //D5
 
 // Uncomment whatever DHT sensor type you're using
-#define DHTTYPE DHT11 // DHT 11
-//#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+//#define DHTTYPE DHT11 // DHT 11
+#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 //#define DHTTYPE DHT21   // DHT 21 (AM2301)
 
 // Initialize DHT sensor
@@ -75,7 +75,7 @@ void loop() {
   }
 
   // MODIFY to get sensor readings from hardware connected to your microcontroller
-  float t = dht.readTemperature();
+  float t = dht.readTemperature(true); // in Fahrenheit by default
   Serial.printf("t =  %6.2f\n", t);
 
   aws.sendTelemetryFloat(t);
