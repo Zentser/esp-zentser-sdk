@@ -1,4 +1,4 @@
-#include <AWSConfig.h>
+#include <Zentser_ESP_SDK.h>
 /*#include <YOUR_SENSORS_LIBRARY> */
 #include <Wire.h>
 #include <SPI.h>
