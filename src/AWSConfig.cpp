@@ -92,7 +92,7 @@ void AWSConfig::msgReceived(char *topic, byte *payload, unsigned int length) {
 
 
 bool AWSConfig::isOutOfLimits(float value) {
-  if ((sensorMinLimit == NAN) && (sensorMaxLimit == NAN)) {
+  if (isnan(sensorMinLimit) && isnan(sensorMaxLimit)) {
     return false;
   }
 
@@ -192,6 +192,11 @@ bool AWSConfig::publishFloat(float value) {
 
 
 bool AWSConfig::sendTelemetryFloat(float value) {
+
+  if (isnan(value)) {
+    Serial.printf("Can't send data. Wrong value %f. Please check, that your sensor is connected properly.\n", value);
+    return false;
+  }
   
   if(isOutOfLimits(value)) {
     if (sendNow) {
