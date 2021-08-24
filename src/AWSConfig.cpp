@@ -230,4 +230,8 @@ AWSConfig::AWSConfig(String deviceId, String sensorId) {
   this->sensorId = sensorId;
 }
 
+AWSConfig::AWSConfig(String deviceId) {
+  this->deviceId = deviceId;
+}
+
 AWSConfig::~AWSConfig() {}

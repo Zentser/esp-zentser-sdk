@@ -93,6 +93,9 @@ class AWSConfig {
   void delayNextRead();
 
   AWSConfig(String deviceId, String sensorId);
+
+  AWSConfig(String deviceId);
+
   ~AWSConfig();
 };
 
