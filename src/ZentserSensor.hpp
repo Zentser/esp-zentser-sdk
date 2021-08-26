@@ -21,4 +21,18 @@ struct Sensor {
   String id;
   String name;
   float value;
+  float alarmMinLimit = NAN;
+  float alarmMaxLimit = NAN;
+
+  bool isOutOfLimits() {
+    if (isnan(alarmMinLimit) && isnan(alarmMaxLimit)) {
+      return false;
+    }
+
+    if ((value < alarmMinLimit) || (value > alarmMaxLimit)) {
+      return true;
+    }
+
+    return false;
+  }
 };
