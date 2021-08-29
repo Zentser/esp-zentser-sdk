@@ -27,6 +27,8 @@ class AWSConfig {
   const char *awsEndpoint = "a3k0qrpvxv7791-ats.iot.us-west-1.amazonaws.com";
   String deviceId;
   String sensorId;
+  Sensor *sensorsArray;
+  size_t sensorsArraySize;
   // PUB SUB CLIENT TOPICS
   String OUT_TOPIC_PREFIX = "zentser/device/";
   String OUT_TOPIC_SUFFIX = "/message";
@@ -51,7 +53,7 @@ class AWSConfig {
 
   PubSubClient pubSubClient;
   //sensors params
-  unsigned int sendDataInterval = 60000;
+  unsigned int sendDataInterval = 60000 * 5;
   unsigned int readSensorInterval = 10000;
   unsigned short attemptCount = 3;
 
@@ -126,7 +128,7 @@ class AWSConfig {
   void msgReceived(char *topic, byte *payload, unsigned int length) {
     Serial.printf("Message received on %s\n", topic);
 
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(1024 * 6);
     DeserializationError error = deserializeJson(doc, payload);
     if (error) {
       Serial.print("Parsing settings from AWS failed: ");
@@ -134,25 +136,25 @@ class AWSConfig {
       return;
     }
 
-    JsonVariant sendInterval = doc["send_data_interval"];
+    JsonVariant sendInterval = doc["device"]["send_data_interval"];
     if (!sendInterval.isNull()) {
       sendDataInterval = sendInterval;
       Serial.printf("Received sendDataInterval: %u\n", sendDataInterval);
     }
 
-    JsonVariant readInterval = doc["check_sensor_interval"];
+    JsonVariant readInterval = doc["device"]["check_sensor_interval"];
     if (!readInterval.isNull()) {
       readSensorInterval = readInterval;
       Serial.printf("Received readSensorInterval: %u\n", readSensorInterval);
     }
 
-    JsonVariant count = doc["attempt_count"];
+    JsonVariant count = doc["device"]["attempt_count"];
     if (!count.isNull()) {
       attemptCount = count;
       Serial.printf("Received attemptCount: %d\n", attemptCount);
     }
 
-    JsonArray arr = doc["sensors"].as<JsonArray>();
+    JsonArray arr = doc["device"]["sensors"].as<JsonArray>();
 
     char *pch;
     for (JsonObject sensor : arr) {
@@ -172,6 +174,13 @@ class AWSConfig {
       }
     }
 
+    // show errors if they are
+    JsonArray errors = doc["device"]["errors"].as<JsonArray>();
+    for (JsonObject error : errors) {
+      Serial.printf("Error: %s\n", error["kind"].as<const char*>());
+      Serial.println(error["message"].as<const char*>());
+    }
+
     delay(500);
   }
 
@@ -180,6 +189,21 @@ class AWSConfig {
 
     doc[sensorId] = value;
 
+    String jsonString;
+    serializeJson(doc, jsonString);
+
+    return jsonString;
+  }
+
+  // TODO: need to create JSON array
+  template <size_t N>
+  String createJsonForPublishing(Sensor (&array)[N]) {
+    DynamicJsonDocument doc(256);
+
+    for (Sensor sensor : array) {
+      doc[sensor.id] = sensor.value;
+    }
+    
     String jsonString;
     serializeJson(doc, jsonString);
 
@@ -210,13 +234,44 @@ class AWSConfig {
 
   template <size_t N>
   bool publishSensorsData(Sensor (&array)[N]) {
-    for (Sensor sensor : array) {
-      Serial.printf("Sent %s id: %s value = %6.2f\n", sensor.name.c_str(), sensor.id.c_str(), sensor.value);
+
+    pubSubCheckConnect();
+    String msgData = createJsonForPublishing(array);
+    String topic = OUT_TOPIC_PREFIX + deviceId + OUT_TOPIC_SUFFIX;
+
+    bool published = pubSubClient.publish(topic.c_str(), msgData.c_str());
+    if (wiFiClient.available()) {
+      wiFiClient.flush();
+      Serial.println("wiFiClient flushed!");
     }
 
+    if (published) {
+      Serial.print("Published: ");
+      Serial.println(msgData);
+    } else {
+      Serial.printf("Can't publish value %s", msgData.c_str());
+    }
     lastPublish = millis();
+    
+    for (Sensor &sensor : array) {
+      sensor.alarmMinLimit = 15.0f;
+      sensor.alarmMaxLimit = 30.0f;
+    }
 
-    return true;
+    Serial.println("=== publishSensorsData ===");
+    for (Sensor e : array) {
+      Serial.printf("%s id: %s value = %6.2f min = %6.2f max = %6.2f\n", e.name.c_str(), e.id.c_str(), e.value, e.alarmMinLimit, e.alarmMaxLimit);
+    }
+
+    return published;
+
+    // for (Sensor sensor : array) {
+    //   Serial.printf("Sent %s id: %s value = %6.2f\n", sensor.name.c_str(), sensor.id.c_str(), sensor.value);
+    // }
+
+    // lastPublish = millis();
+
+    // return true;
   }
 
   inline float parseStringToFloat(String value) {
@@ -343,6 +398,13 @@ class AWSConfig {
 
   AWSConfig(String deviceId) {
     this->deviceId = deviceId;
+  }
+
+  template <size_t N>
+  AWSConfig(String deviceId, Sensor (&array)[N]) {
+    this->deviceId = deviceId;
+    this->sensorsArray = array;
+    this->sensorsArraySize = N;
   }
 
   ~AWSConfig() {}
