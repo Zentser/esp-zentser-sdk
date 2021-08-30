@@ -25,16 +25,17 @@ class AWSConfig {
   private:
   ///////////
   const char *awsEndpoint = "a3k0qrpvxv7791-ats.iot.us-west-1.amazonaws.com";
-  String deviceId;
-  String sensorId;
-  Sensor *sensorsArray;
-  size_t sensorsArraySize;
+  const uint16_t MQTT_BUFFER_SIZE = 1024 * 2;
   // PUB SUB CLIENT TOPICS
   String OUT_TOPIC_PREFIX = "zentser/device/";
   String OUT_TOPIC_SUFFIX = "/message";
   String IN_TOPIC_PREFIX = "zentser/device/";
   String IN_TOPIC_SUFFIX = "/event";
   // state variables
+  String deviceId;
+  String sensorId;
+  Sensor *sensorsArray;
+  size_t sensorsArraySize;
   float sensorMinLimit = NAN;
   float sensorMaxLimit = NAN;
   unsigned long lastPublish;
@@ -61,7 +62,7 @@ class AWSConfig {
   bool sendNow = true;
 
   // methods
-  void setCurrentTime() {
+  void _setCurrentTime() {
     configTime(3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
 
     Serial.print("Waiting for NTP time sync: ");
@@ -78,15 +79,15 @@ class AWSConfig {
     Serial.print(asctime(&timeinfo));
   }
 
-  void pubSubCheckConnect() {
+  void _pubSubCheckConnect() {
     if (!pubSubClient.connected()) {
       pubSubClient.setServer(awsEndpoint, 8883);
       pubSubClient.setCallback([this](char *topic, byte *payload, unsigned int length) {
-        this->msgReceived(topic, payload, length);
+        this->_msgReceived(topic, payload, length);
       });
       pubSubClient.setClient(wiFiClient);
       pubSubClient.setKeepAlive((sendDataInterval / 1000) + 5);
-      pubSubClient.setBufferSize(1024);
+      pubSubClient.setBufferSize(MQTT_BUFFER_SIZE);
 
       Serial.printf("PubSubClient connecting to: %s", awsEndpoint);
       while (!pubSubClient.connected()) {
@@ -125,10 +126,10 @@ class AWSConfig {
     }
   }
 
-  void msgReceived(char *topic, byte *payload, unsigned int length) {
+  void _msgReceived(char *topic, byte *payload, unsigned int length) {
     Serial.printf("Message received on %s\n", topic);
 
-    DynamicJsonDocument doc(1024 * 6);
+    DynamicJsonDocument doc(MQTT_BUFFER_SIZE);
     DeserializationError error = deserializeJson(doc, payload);
     if (error) {
       Serial.print("Parsing settings from AWS failed: ");
@@ -166,25 +167,32 @@ class AWSConfig {
       pch = strstr(type, "custom");
       if (pch != NULL) {
         String min = sensor["min_value"];
-        sensorMinLimit = parseStringToFloat(min);
+        sensorMinLimit = _parseStringToFloat(min);
         String max = sensor["max_value"];
-        sensorMaxLimit = parseStringToFloat(max);
+        sensorMaxLimit = _parseStringToFloat(max);
         Serial.printf("Received min: %0.1f\n", sensorMinLimit);
         Serial.printf("Received max: %0.1f\n", sensorMaxLimit);
+
+        for (size_t i = 0; i < sensorsArraySize; ++i) {
+          if (sensorsArray[i].id == sensor["id"].as<String>()) {
+            sensorsArray[i].alarmMinLimit = sensorMinLimit;
+            sensorsArray[i].alarmMaxLimit = sensorMaxLimit;
+          }
+        }
       }
     }
 
     // show errors if they are
     JsonArray errors = doc["device"]["errors"].as<JsonArray>();
     for (JsonObject error : errors) {
-      Serial.printf("Error: %s\n", error["kind"].as<const char*>());
-      Serial.println(error["message"].as<const char*>());
+      Serial.printf("Error: %s\n", error["kind"].as<const char *>());
+      Serial.println(error["message"].as<const char *>());
     }
 
     delay(500);
   }
 
-  String createJsonForPublishing(String sensorId, float value) {
+  String _createJsonForPublishing(String sensorId, float value) {
     DynamicJsonDocument doc(256);
 
     doc[sensorId] = value;
@@ -195,24 +203,22 @@ class AWSConfig {
     return jsonString;
   }
 
-  // TODO: need to create JSON array
-  template <size_t N>
-  String createJsonForPublishing(Sensor (&array)[N]) {
+  String _createJsonForPublishing() {
     DynamicJsonDocument doc(256);
 
-    for (Sensor sensor : array) {
-      doc[sensor.id] = sensor.value;
+    for (size_t i = 0; i < sensorsArraySize; ++i) {
+      doc[sensorsArray[i].id] = sensorsArray[i].value;
     }
-    
+
     String jsonString;
     serializeJson(doc, jsonString);
 
     return jsonString;
   }
 
-  bool publishFloat(float value) {
-    pubSubCheckConnect();
-    String msgData = createJsonForPublishing(sensorId, value);
+  bool _publishFloat(float value) {
+    _pubSubCheckConnect();
+    String msgData = _createJsonForPublishing(sensorId, value);
     String topic = OUT_TOPIC_PREFIX + deviceId + OUT_TOPIC_SUFFIX;
 
     bool published = pubSubClient.publish(topic.c_str(), msgData.c_str());
@@ -232,11 +238,10 @@ class AWSConfig {
     return published;
   }
 
-  template <size_t N>
-  bool publishSensorsData(Sensor (&array)[N]) {
+  bool _publishSensorsData() {
 
-    pubSubCheckConnect();
-    String msgData = createJsonForPublishing(array);
+    _pubSubCheckConnect();
+    String msgData = _createJsonForPublishing();
     String topic = OUT_TOPIC_PREFIX + deviceId + OUT_TOPIC_SUFFIX;
 
     bool published = pubSubClient.publish(topic.c_str(), msgData.c_str());
@@ -252,29 +257,11 @@ class AWSConfig {
       Serial.printf("Can't publish value %s", msgData.c_str());
     }
     lastPublish = millis();
-    
-    for (Sensor &sensor : array) {
-      sensor.alarmMinLimit = 15.0f;
-      sensor.alarmMaxLimit = 30.0f;
-    }
-
-    Serial.println("=== publishSensorsData ===");
-    for (Sensor e : array) {
-      Serial.printf("%s id: %s value = %6.2f min = %6.2f max = %6.2f\n", e.name.c_str(), e.id.c_str(), e.value, e.alarmMinLimit, e.alarmMaxLimit);
-    }
 
     return published;
-
-    // for (Sensor sensor : array) {
-    //   Serial.printf("Sent %s id: %s value = %6.2f\n", sensor.name.c_str(), sensor.id.c_str(), sensor.value);
-    // }
-
-    // lastPublish = millis();
-
-    // return true;
   }
 
-  inline float parseStringToFloat(String value) {
+  inline float _parseStringToFloat(String value) {
     if (value == "null") {
       return NAN;
     } else {
@@ -282,7 +269,7 @@ class AWSConfig {
     }
   }
 
-  bool isOutOfLimits(float value) {
+  bool _isOutOfLimits(float value) {
     if (isnan(sensorMinLimit) && isnan(sensorMaxLimit)) {
       return false;
     }
@@ -299,7 +286,7 @@ class AWSConfig {
   ///////////
   void setupAWSCertificates(const char *certificate, const char *privateKey, const char *caCertificate) {
 
-    setCurrentTime();
+    _setCurrentTime();
 
 #if defined(ESP8266)
 
@@ -331,10 +318,10 @@ class AWSConfig {
       return false;
     }
 
-    if (isOutOfLimits(value)) {
+    if (_isOutOfLimits(value)) {
       if (sendNow) {
         Serial.println("Send data NOW!");
-        publishFloat(value);
+        _publishFloat(value);
         loop();
         sendNow = false;
         return true;
@@ -342,11 +329,11 @@ class AWSConfig {
     }
 
     if (isTimeToSend()) {
-      if (!isOutOfLimits(value)) {
+      if (!_isOutOfLimits(value)) {
         sendNow = true;
       }
       Serial.println("Send data by schedule.");
-      publishFloat(value);
+      _publishFloat(value);
       loop();
       return true;
     }
@@ -357,12 +344,11 @@ class AWSConfig {
   /*!
   *  @brief  Send telemetry of all sensors
   */
-  template <size_t N>
-  void sendSensorsTelemetry(Sensor (&array)[N]) {
-    for (Sensor sensor : array) {
-      if (sensor.isOutOfLimits() && sendNow) {
+  void sendSensorsTelemetry() {
+    for (size_t i = 0; i < sensorsArraySize; ++i) {
+      if (sensorsArray[i].isOutOfLimits() && sendNow) {
         Serial.println("Send data NOW!");
-        publishSensorsData(array);
+        _publishSensorsData();
         sendNow = false;
         loop();
 
@@ -371,14 +357,14 @@ class AWSConfig {
     }
 
     if (isTimeToSend()) {
-      for (Sensor sensor : array) {
-        if (!sensor.isOutOfLimits()) {
+      for (size_t i = 0; i < sensorsArraySize; ++i) {
+        if (!sensorsArray[i].isOutOfLimits()) {
           sendNow = true;
           break;
         }
       }
       Serial.println("Send data by schedule.");
-      publishSensorsData(array);
+      _publishSensorsData();
       loop();
     }
   }
@@ -394,10 +380,6 @@ class AWSConfig {
   AWSConfig(String deviceId, String sensorId) {
     this->deviceId = deviceId;
     this->sensorId = sensorId;
-  }
-
-  AWSConfig(String deviceId) {
-    this->deviceId = deviceId;
   }
 
   template <size_t N>
