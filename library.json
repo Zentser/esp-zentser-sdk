@@ -1,12 +1,12 @@
 {
     "name": "Zentser ESP SDK",
     "keywords": "mqtt, iot, zentser",
-    "description": "A library for connecting to AWS.",
+    "description": "A library for connecting Espressif devices with Sensors to a Zentser Mobile App",
     "repository": {
         "type": "git",
         "url": "https://github.com/Zentser/esp-zentser-sdk"
     },
-    "version": "0.0.1",
+    "version": "0.0.8",
     "dependencies": {
         "bblanchon/ArduinoJson": "^6.18.1",
         "PubSubClient": "^2.8"
