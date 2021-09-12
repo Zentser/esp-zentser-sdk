@@ -137,25 +137,25 @@ class AWSConfig {
       return;
     }
 
-    JsonVariant sendInterval = doc["device"]["send_data_interval"];
+    JsonVariant sendInterval = doc["send_data_interval"];
     if (!sendInterval.isNull()) {
       sendDataInterval = sendInterval;
       Serial.printf("Received sendDataInterval: %u\n", sendDataInterval);
     }
 
-    JsonVariant readInterval = doc["device"]["check_sensor_interval"];
+    JsonVariant readInterval = doc["check_sensor_interval"];
     if (!readInterval.isNull()) {
       readSensorInterval = readInterval;
       Serial.printf("Received readSensorInterval: %u\n", readSensorInterval);
     }
 
-    JsonVariant count = doc["device"]["attempt_count"];
+    JsonVariant count = doc["attempt_count"];
     if (!count.isNull()) {
       attemptCount = count;
       Serial.printf("Received attemptCount: %d\n", attemptCount);
     }
 
-    JsonArray arr = doc["device"]["sensors"].as<JsonArray>();
+    JsonArray arr = doc["sensors"].as<JsonArray>();
 
     char *pch;
     for (JsonObject sensor : arr) {
@@ -183,7 +183,7 @@ class AWSConfig {
     }
 
     // show errors if they are
-    JsonArray errors = doc["device"]["errors"].as<JsonArray>();
+    JsonArray errors = doc["errors"].as<JsonArray>();
     for (JsonObject error : errors) {
       Serial.printf("Error: %s\n", error["kind"].as<const char *>());
       Serial.println(error["message"].as<const char *>());
