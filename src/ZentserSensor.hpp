@@ -7,7 +7,7 @@
  *  @param  id
  *          sensor's id has given by the server. Required.
  *  @param  name
- *          sensor's name. Not required, used only for pretty logging
+ *          sensor's name. Optional parameter for readability
  *  @param  float
  * 			    value returned by a sensor. Required
  */
