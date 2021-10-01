@@ -24,7 +24,7 @@ class AWSConfig {
   ///////////
   private:
   ///////////
-  const char *awsEndpoint = "a3k0qrpvxv7791-ats.iot.us-east-1.amazonaws.com";
+  const char *awsEndpoint = "a3k0qrpvxv7791-ats.iot.us-west-1.amazonaws.com";
   const uint16_t MQTT_BUFFER_SIZE = 1024 * 2;
   // PUB SUB CLIENT TOPICS
   String OUT_TOPIC_PREFIX = "zentser/device/";

@@ -24,11 +24,14 @@ static const char privateKey[] PROGMEM = R"KEY(
 )KEY";
  
 String deviceId = "YOUR_DEVICE_ID"; // Zentser Device ID
-String sensorId = "YOUR_SENSOR_ID"; // Zentser Sensor ID
+// Zentser Sensor ID
+Sensor sensors[] {
+  Sensor("YOUR_SENSOR_ID_0", "YOUR_SENSOR_NAME"),
+};
 
 // --- END ---
 
-AWSConfig aws = AWSConfig(deviceId, sensorId); // init AWS function
+AWSConfig aws = AWSConfig(deviceId, sensors); // init AWS function
 
 // Function to connect to WiFi
 void connectToWiFi() {
@@ -68,7 +71,9 @@ void loop() {
   Serial.printf("sensorValue = %i\n", sensorValue);
   Serial.printf("sensorPercentValue = %i\n", sensorPercentValue);
 
-  aws.sendTelemetryFloat(sensorPercentValue);
+  sensors[0].value = sensorPercentValue;
+
+  aws.sendSensorsTelemetry();
   
   // check that we're not bombarding Zentser with too much data
   // don't want to bring the system down in unintended DDoS attack
