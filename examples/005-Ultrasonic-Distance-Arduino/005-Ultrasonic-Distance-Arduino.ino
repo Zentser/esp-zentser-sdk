@@ -18,11 +18,14 @@ static const char privateKey[] PROGMEM = R"KEY(
 )KEY";
  
 String deviceId = "YOUR_DEVICE_ID"; // Zentser Device ID
-String sensorId = "YOUR_SENSOR_ID"; // Zentser Sensor ID
+// Zentser Sensor ID
+Sensor sensors[] {
+  Sensor("YOUR_SENSOR_ID_0", "YOUR_SENSOR_NAME"),
+};
 
 // --- END ---
 
-AWSConfig aws = AWSConfig(deviceId, sensorId); // init AWS function
+AWSConfig aws = AWSConfig(deviceId, sensors); // init AWS function
 
 // Initialize Your sensor
 const int trigPin = 12; // D6
@@ -88,8 +91,11 @@ void loop() {
   distanceInch = distanceCm * CM_TO_INCH;
 
   // Choose wheather you're sending distance in CM or inches
-  // aws.sendTelemetryFloat(distanceCm); // send dinstance in cm
-  aws.sendTelemetryFloat(distanceInch); // send dinstance in inches
+  // sensors[0].value = distanceCm; // send dinstance in cm
+  
+  sensors[0].value = distanceInch; // send dinstance in inches
+
+  aws.sendSensorsTelemetry();
   
   // check that we're not bombarding Zentser with too much data
   // don't want to bring the system down in unintended DDoS attack
