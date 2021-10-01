@@ -22,15 +22,20 @@ static const char privateKey[] PROGMEM = R"KEY(
 )KEY";
  
 String deviceId = "YOUR_DEVICE_ID"; // Zentser Device ID
-String sensorId = "YOUR_SENSOR_ID"; // Zentser Sensor ID
+// Zentser Sensor ID
+Sensor sensors[] {
+  Sensor("YOUR_SENSOR_ID_0", "Pressure (hPa)"),
+  Sensor("YOUR_SENSOR_ID_1", "Temperature (F)"),
+};
 
 // --- END ---
 
-AWSConfig aws = AWSConfig(deviceId, sensorId); // init AWS function
+AWSConfig aws = AWSConfig(deviceId, sensors); // init AWS function
 
 // Initialize Your sensor
 Adafruit_BMP280 bmp; // use I2C interface
 Adafruit_Sensor *bmp_pressure = bmp.getPressureSensor();
+Adafruit_Sensor *bmp_temperature = bmp.getTemperatureSensor();
 
 // Function to connect to WiFi
 void connectToWiFi() {
@@ -83,15 +88,24 @@ void loop() {
   // MODIFY to get sensor readings from hardware connected to your microcontroller
   sensors_event_t pressure_event;
   bmp_pressure->getEvent(&pressure_event);
+
+  sensors_event_t temperature_event;
+  bmp_temperature->getEvent(&temperature_event);
   
   // if You prefer to see values in a different unit, just comment hPa line and uncomment another one
-  Serial.printf("Pressure =  %8.2f hPa\n", pressure_event.pressure);  // in hPa
-  //Serial.printf("Pressure =  %8.2f mmHg\n", pressure_event.pressure * 0.75);  // in mmHg
-  //Serial.printf("Pressure =  %8.2f inHg\n", pressure_event.pressure * 0.03);  // in inHg
+  float p = pressure_event.pressure; // in hPa
+  //float p = pressure_event.pressure * 0.75f; // in mmHg
+  //float p = pressure_event.pressure * 0.03f; // in inHg
 
-  aws.sendTelemetryFloat(pressure_event.pressure);  //in hPa
-  //aws.sendTelemetryFloat(pressure_event.pressure * 0.75);  //in mmHg
-  //aws.sendTelemetryFloat(pressure_event.pressure * 0.03);  //in inHg
+  float t = (temperature_event.temperature * 1.8f) + 32.0f;  // in Fahrenheit
+
+  Serial.printf("Pressure = %8.2f hPa\n", p);
+  Serial.printf("Temperature = %8.2f F\n", t);
+
+  sensors[0].value = p;
+  sensors[1].value = t;
+
+  aws.sendSensorsTelemetry();
   
   // check that we're not bombarding Zentser with too much data
   // don't want to bring the system down in unintended DDoS attack 

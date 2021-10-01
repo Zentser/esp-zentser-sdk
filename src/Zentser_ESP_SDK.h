@@ -1,6 +1,3 @@
-#ifndef Zentser_ESP_SDK_h
-#define Zentser_ESP_SDK_h
+#pragma once
 
-#include "AWSConfig.h"
-
-#endif
+#include "AWSConfig.hpp"
