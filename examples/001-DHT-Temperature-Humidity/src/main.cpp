@@ -1,4 +1,4 @@
-#include <Zentser_ESP_SDK.h>
+#include <AWSConfig.h>
 /*#include <YOUR_SENSORS_LIBRARY> */
 #include <DHT.h>
 
@@ -20,11 +20,17 @@ static const char privateKey[] PROGMEM = R"KEY(
 )KEY";
  
 String deviceId = "YOUR_DEVICE_ID"; // Zentser Device ID
-String sensorId = "YOUR_SENSOR_ID"; // Zentser Sensor ID
+
+// Zentser Sensor ID
+Sensor sensors[] {
+  Sensor("YOUR_SENSOR_ID_0", "Temperature (F)"),
+  Sensor("YOUR_SENSOR_ID_1", "Humidity (%)"),
+  Sensor("YOUR_SENSOR_ID_2", "Heat Index (F)"),
+}; 
 
 // --- END ---
 
-AWSConfig aws = AWSConfig(deviceId, sensorId); // init AWS function
+AWSConfig aws = AWSConfig(deviceId, sensors); // init AWS function
 
 // Initialize Your sensor
 // Digital pin connected to the DHT sensor
@@ -75,10 +81,16 @@ void loop() {
   }
 
   // MODIFY to get sensor readings from hardware connected to your microcontroller
-  float t = dht.readTemperature(true); // in Fahrenheit by default
-  Serial.printf("t =  %6.2f\n", t);
+  float t = dht.readTemperature(true);
+  float h = dht.readHumidity();
+  float hIdx = dht.computeHeatIndex(t, h);
+  Serial.printf("t = %6.2f; h = %6.2f; heatIndex = %6.2f\n", t, h, hIdx);
 
-  aws.sendTelemetryFloat(t);
+  sensors[0].value = t;
+  sensors[1].value = h;
+  sensors[2].value = hIdx;
+
+  aws.sendSensorsTelemetry();
   
   // check that we're not bombarding Zentser with too much data
   // don't want to bring the system down in unintended DDoS attack
